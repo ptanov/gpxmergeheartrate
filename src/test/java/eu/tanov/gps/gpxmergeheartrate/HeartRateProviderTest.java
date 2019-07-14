@@ -94,6 +94,17 @@ public class HeartRateProviderTest {
 		assertEquals(DEFAULT_SMALL_FIRST_LINE_ZONE, actual.getRateZone());
 	}
 
+	@Test
+	public void souldParseHeartRateGreaterThan100() {
+		final String firstLine = DEFAULT_SMALL_FIRST_LINE_DATE+","+DEFAULT_SMALL_FIRST_LINE_RATE+",149%";
+		final HeartRateProvider heartRateProvider = new HeartRateProvider(toInputStream(DEFAULT_HEADER+firstLine));
+
+		final HeartRateRow actual = heartRateProvider.parseLine(firstLine);
+		assertEquals(parseDateTime(DEFAULT_SMALL_FIRST_LINE_DATE), actual.getDateTime());
+		assertEquals(DEFAULT_SMALL_FIRST_LINE_RATE, actual.getRate());
+		assertEquals(149, actual.getRateZone());
+	}
+
 	private static OffsetDateTime parseDateTime(String dateTime) {
 		return LocalDateTime.parse(dateTime, DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")).atZone(ZoneId.systemDefault())
 				.toOffsetDateTime();

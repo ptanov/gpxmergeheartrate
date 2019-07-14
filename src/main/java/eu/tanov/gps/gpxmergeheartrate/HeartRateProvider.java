@@ -50,8 +50,8 @@ public class HeartRateProvider {
 				throw new IllegalArgumentException("Rate must be positive, but was: " + rate);
 			}
 			this.rate = rate;
-			if (rateZone < 0 || rateZone > 100) {
-				throw new IllegalArgumentException("Ratezone must be [0; 100], but was: " + rateZone);
+			if (rateZone < 0 || rateZone > 150) {
+				throw new IllegalArgumentException("Ratezone must be [0; 150], but was: " + rateZone);
 			}
 			this.rateZone = rateZone;
 		}
