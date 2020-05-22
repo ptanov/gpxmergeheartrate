@@ -30,23 +30,33 @@ public class GpxMergeHeartRate {
 	private static final String EXTENSION_URI = "http://www.garmin.com/xmlschemas/TrackPointExtension/v1";
 
 	public static void main(String[] args) throws Exception {
-		if (args.length != 3) {
-			System.err.println("3 parameters expected: <input gpx file> <input csv heart rate file> <result gpx file>");
+		if (args.length != 3 && args.length != 4) {
+			System.err.println(
+					"3 or 4 parameters expected: <input gpx file> <input csv heart rate file> <result gpx file> [<max heart rate>]");
 			System.exit(1);
 		}
 		final String gpxInputFile = args[0];
 		final String heartRateFile = args[1];
 		final String resultFile = args[2];
+		final Optional<Integer> maximumHeartRate = Optional.ofNullable(args.length == 4 ? Integer.valueOf(args[3]) : null);
 		final GpxMergeHeartRate gpxMergeHeartRate = new GpxMergeHeartRate();
-		final Statistics statistics = gpxMergeHeartRate.process(new FileInputStream(gpxInputFile),
-				new FileInputStream(heartRateFile), new FileOutputStream(resultFile));
+		try (FileInputStream gpxInputStream = new FileInputStream(gpxInputFile)) {
+			try (FileInputStream heartRateStream = new FileInputStream(heartRateFile)) {
+				try (FileOutputStream resultStream = new FileOutputStream(resultFile)) {
+					final Statistics statistics =
+							gpxMergeHeartRate.process(gpxInputStream, heartRateStream, resultStream, maximumHeartRate);
 
-		System.out.printf("Processed: %d/%d\n", statistics.getCountSucceed(),
-				(statistics.getCountSucceed() + statistics.getCountFailed()));
+					System.out.printf("Processed: %d/%d\n", statistics.getCountSucceed(),
+							(statistics.getCountSucceed() + statistics.getCountFailed()));
+				}
+			}
+		}
 	}
 
-	public Statistics process(InputStream gpxInputFile, InputStream heartRateFile, OutputStream resultFile) throws Exception {
-		final HeartRateProvider heartRateProvider = new HeartRateProvider(heartRateFile);
+	public Statistics process(InputStream gpxInputFile, InputStream heartRateFile, OutputStream resultFile,
+			Optional<Integer> maximumHeartRate) throws Exception {
+		final HeartRateProvider heartRateProvider = maximumHeartRate.map(a -> new HeartRateProvider(heartRateFile, a))
+				.orElseGet(() -> new HeartRateProvider(heartRateFile));
 
 		final XMLInputFactory factory = XMLInputFactory.newInstance();
 		factory.setProperty("javax.xml.stream.isCoalescing", true);
@@ -56,8 +66,8 @@ public class GpxMergeHeartRate {
 
 		final XMLEventFactory eventFactory = XMLEventFactory.newInstance();
 
-		StateHandler currentState = new OutsideTrkptStateHandler(heartRateProvider,
-				IdentatingStateHandler.createInitialData(eventFactory, writer));
+		StateHandler currentState =
+				new OutsideTrkptStateHandler(heartRateProvider, IdentatingStateHandler.createInitialData(eventFactory, writer));
 		while (reader.hasNext()) {
 			final XMLEvent event = (XMLEvent) reader.next();
 			currentState = currentState.handleEvent(addNamespacesIfRootElement(eventFactory, event));

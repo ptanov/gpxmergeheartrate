@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -14,6 +15,7 @@ import java.util.stream.Stream;
 
 public class HeartRateProvider {
 	private static final Duration MAX_DIFFERENCE = Duration.ofMinutes(1);
+	private static final int DEFAULT_MAXIMUM_HEART_RATE = 190;
 
 	public static class Statistics {
 		private final int countSucceed;
@@ -69,7 +71,6 @@ public class HeartRateProvider {
 			return rate;
 		}
 
-		@SuppressWarnings("unused")
 		public int getRateZone() {
 			return rateZone;
 		}
@@ -82,8 +83,14 @@ public class HeartRateProvider {
 
 	private int countSucceed = 0;
 	private int countFailed = 0;
+	private final int maximumHeartRate;
 
 	public HeartRateProvider(InputStream source) {
+		this(source, DEFAULT_MAXIMUM_HEART_RATE);
+	}
+
+	public HeartRateProvider(InputStream source, int maximumHeartRate) {
+		this.maximumHeartRate = maximumHeartRate;
 		try (Stream<String> stream = new BufferedReader(new InputStreamReader(source)).lines()) {
 			heartRates = stream.skip(1).filter(a -> !a.isEmpty()).map(this::parseLine)
 					.sorted((a, b) -> a.getDateTime().compareTo(b.getDateTime())).toArray(HeartRateRow[]::new);
@@ -97,6 +104,16 @@ public class HeartRateProvider {
 	}
 
 	protected HeartRateRow parseLine(String line) {
+		if (line.contains(",")) {
+			return parseLineMiBandTools(line);
+		} else if (line.contains(";")) {
+			return parseLineNotifyFitnessForMiBand(line);
+		}
+		throw new IllegalArgumentException("Unrecognized format: " + line);
+	}
+
+	private HeartRateRow parseLineMiBandTools(String line) {
+		// "04.01.2000 00:00:00,4,1%"
 		final String[] splitted = line.split(",");
 		if (splitted.length != 3) {
 			throw new IllegalArgumentException("3 expected, but was: " + line);
@@ -107,6 +124,23 @@ public class HeartRateProvider {
 
 		final int rate = Integer.parseInt(splitted[1]);
 		final int rateZone = Integer.parseInt(splitted[2].substring(0, splitted[2].length() - 1));
+
+		return new HeartRateRow(dateTime, rate, rateZone);
+	}
+
+	private HeartRateRow parseLineNotifyFitnessForMiBand(String line) {
+		// "60;1589922120000;20 May 2020;00:02:00";
+		final String[] splitted = line.split(";");
+		if (splitted.length != 4) {
+			throw new IllegalArgumentException("4 expected, but was: " + line);
+		}
+
+		final OffsetDateTime dateTime =
+				LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.valueOf(splitted[1])), ZoneId.systemDefault())
+						.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+
+		final int rate = Integer.parseInt(splitted[0]);
+		final int rateZone = Math.min(100, 100 * rate / maximumHeartRate);
 
 		return new HeartRateRow(dateTime, rate, rateZone);
 	}
@@ -180,8 +214,7 @@ public class HeartRateProvider {
 		final Duration durationTo = Duration.between(dateTime, heartRates[toIndex].getDateTime());
 		if (durationFrom.compareTo(durationTo) > 0) {
 			return fromIndex;
-		} else {
-			return toIndex;
 		}
+		return toIndex;
 	}
 }
