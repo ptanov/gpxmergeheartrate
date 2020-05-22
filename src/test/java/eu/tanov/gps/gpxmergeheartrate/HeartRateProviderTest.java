@@ -44,8 +44,8 @@ public class HeartRateProviderTest {
 	private static final String DEFAULT_SMALL_FIRST_LINE_DATE = "10.11.2018 23:15:36";
 	private static final int DEFAULT_SMALL_FIRST_LINE_RATE = 91;
 	private static final int DEFAULT_SMALL_FIRST_LINE_ZONE = 47;
-	private static final String DEFAULT_SMALL_FIRST_LINE = DEFAULT_SMALL_FIRST_LINE_DATE + "," + DEFAULT_SMALL_FIRST_LINE_RATE
-			+ "," + DEFAULT_SMALL_FIRST_LINE_ZONE + "%";
+	private static final String DEFAULT_SMALL_FIRST_LINE =
+			DEFAULT_SMALL_FIRST_LINE_DATE + "," + DEFAULT_SMALL_FIRST_LINE_RATE + "," + DEFAULT_SMALL_FIRST_LINE_ZONE + "%";
 	private static final String DEFAULT_SMALL = DEFAULT_HEADER + DEFAULT_SMALL_FIRST_LINE;
 
 	/**
@@ -85,7 +85,7 @@ public class HeartRateProviderTest {
 	}
 
 	@Test
-	public void souldParseHeartRateLine() {
+	public void souldParseMiBandToolsHeartRateLine() {
 		final HeartRateProvider heartRateProvider = new HeartRateProvider(toInputStream(DEFAULT_SMALL));
 
 		final HeartRateRow actual = heartRateProvider.parseLine(DEFAULT_SMALL_FIRST_LINE);
@@ -95,14 +95,36 @@ public class HeartRateProviderTest {
 	}
 
 	@Test
-	public void souldParseHeartRateGreaterThan100() {
-		final String firstLine = DEFAULT_SMALL_FIRST_LINE_DATE+","+DEFAULT_SMALL_FIRST_LINE_RATE+",149%";
-		final HeartRateProvider heartRateProvider = new HeartRateProvider(toInputStream(DEFAULT_HEADER+firstLine));
+	public void souldParseMiBandToolsHeartRateGreaterThan100() {
+		final String firstLine = DEFAULT_SMALL_FIRST_LINE_DATE + "," + DEFAULT_SMALL_FIRST_LINE_RATE + ",149%";
+		final HeartRateProvider heartRateProvider = new HeartRateProvider(toInputStream(DEFAULT_HEADER + firstLine));
 
 		final HeartRateRow actual = heartRateProvider.parseLine(firstLine);
 		assertEquals(parseDateTime(DEFAULT_SMALL_FIRST_LINE_DATE), actual.getDateTime());
 		assertEquals(DEFAULT_SMALL_FIRST_LINE_RATE, actual.getRate());
 		assertEquals(149, actual.getRateZone());
+	}
+
+	@Test
+	public void souldParseNotifyFitnessForMiBandHeartRateLine() {
+		final String line = "60;1589922120000;20 May 2020;00:02:00";
+		final HeartRateProvider heartRateProvider = new HeartRateProvider(toInputStream(DEFAULT_HEADER + line));
+
+		final HeartRateRow actual = heartRateProvider.parseLine(line);
+		assertEquals(parseDateTime("20.05.2020 00:02:00"), actual.getDateTime());
+		assertEquals(60, actual.getRate());
+		assertEquals(100 * 60 / 190, actual.getRateZone());
+	}
+
+	@Test
+	public void souldParseNotifyFitnessForMiBandHeartRateLineGreaterThan100() {
+		final String line = "60;1589922120000;20 May 2020;00:02:00";
+		final HeartRateProvider heartRateProvider = new HeartRateProvider(toInputStream(DEFAULT_HEADER + line), 50);
+
+		final HeartRateRow actual = heartRateProvider.parseLine(line);
+		assertEquals(parseDateTime("20.05.2020 00:02:00"), actual.getDateTime());
+		assertEquals(60, actual.getRate());
+		assertEquals(100, actual.getRateZone());
 	}
 
 	private static OffsetDateTime parseDateTime(String dateTime) {
