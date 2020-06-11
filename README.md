@@ -1,6 +1,6 @@
 # gpxmergeheartrate
 
-This program merges gpx track with heart rate provided by MiBand3 (and exported by <https://play.google.com/store/apps/details?id=cz.zdenekhorak.mibandtools>).
+This program merges gpx track with heart rate provided by MiBand3 (and exported by [Tools & Mi Band/Mi Band Tools](https://play.google.com/store/apps/details?id=cz.zdenekhorak.mibandtools) or [Notify & Fitness for Mi Band](https://play.google.com/store/apps/details?id=com.mc.miband1&hl=en)).
 There is a docker image here: <https://hub.docker.com/r/ptanov/gpxmergeheartrate>. The source code is available here: <https://github.com/ptanov/gpxmergeheartrate>.
 
 ## Running
