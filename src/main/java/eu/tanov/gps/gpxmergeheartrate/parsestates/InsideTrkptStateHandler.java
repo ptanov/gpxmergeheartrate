@@ -1,17 +1,33 @@
 package eu.tanov.gps.gpxmergeheartrate.parsestates;
 
+import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Stream.concat;
+import static java.util.stream.Stream.of;
+
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
+import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
 
-import eu.tanov.gps.gpxmergeheartrate.HeartRateProvider;
 import eu.tanov.gps.gpxmergeheartrate.GpxMergeHeartRate;
+import eu.tanov.gps.gpxmergeheartrate.HeartRateProvider;
 
 public class InsideTrkptStateHandler extends IdentatingStateHandler {
+	private static final String ELEMENT_HR = "hr";
+	private static final String ELEMENT_TRACK_POINT_EXTENSION = "TrackPointExtension";
+	private static final String ELEMENT_EXTENSIONS = "extensions";
+
+	private static final Map<String, BiFunction<XMLEventFactory, Integer, Stream<XMLEvent>>> SUPPLIERS = initSuppliers();
+
 	private final List<XMLEvent> events = new ArrayList<>();
 	private final HeartRateProvider heartRateProvider;
 
@@ -20,6 +36,27 @@ public class InsideTrkptStateHandler extends IdentatingStateHandler {
 		super(identatingStateHandler);
 		this.heartRateProvider = heartRateProvider;
 		events.add(event);
+	}
+
+	private static Map<String, BiFunction<XMLEventFactory, Integer, Stream<XMLEvent>>> initSuppliers() {
+		final Map<String, BiFunction<XMLEventFactory, Integer, Stream<XMLEvent>>> result = new HashMap<>();
+		result.put(ELEMENT_TRACK_POINT_EXTENSION,
+				(eventFactory, heartRate) -> of(
+						eventFactory.createStartElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", ELEMENT_HR),
+						eventFactory.createCharacters(String.valueOf(heartRate)),
+						eventFactory.createEndElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", ELEMENT_HR)));
+
+		result.put(ELEMENT_EXTENSIONS, (eventFactory, heartRate) -> concat(
+				concat(of(eventFactory.createStartElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", ELEMENT_TRACK_POINT_EXTENSION)),
+						result.get(ELEMENT_TRACK_POINT_EXTENSION).apply(eventFactory, heartRate)),
+				of(eventFactory.createEndElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", ELEMENT_TRACK_POINT_EXTENSION))));
+
+		result.put(OutsideTrkptStateHandler.ELEMENT_TRACK_POINT,
+				(eventFactory, heartRate) -> concat(
+						concat(of(eventFactory.createStartElement("", GpxMergeHeartRate.NAMESPACE_GPX, ELEMENT_EXTENSIONS)),
+								result.get(ELEMENT_EXTENSIONS).apply(eventFactory, heartRate)),
+						of(eventFactory.createEndElement("", GpxMergeHeartRate.NAMESPACE_GPX, ELEMENT_EXTENSIONS))));
+		return unmodifiableMap(result);
 	}
 
 	@Override
@@ -45,32 +82,31 @@ public class InsideTrkptStateHandler extends IdentatingStateHandler {
 	}
 
 	private List<XMLEvent> addHeartRateToEvents(int heartRate) {
-		if (events.stream()
-				.anyMatch(a -> a.isStartElement() && a.asStartElement().getName().getLocalPart().equals("extensions"))) {
-			throw new UnsupportedOperationException("Having 'extensions' in trkpt is not supported yet, file an issue, please");
+		if (events.stream().anyMatch(a -> a.isStartElement() && a.asStartElement().getName().getLocalPart().equals(ELEMENT_HR))) {
+			throw new IllegalArgumentException("Already have '" + ELEMENT_HR + "'");
 		}
+		final String lastAvailable = addHeartRateToEventsLastAvailable();
+
 		final List<XMLEvent> result = new ArrayList<>(events.size() + 5);
 
 		for (final XMLEvent next : events) {
-			if (next.isEndElement()
-					&& next.asEndElement().getName().getLocalPart().equals(OutsideTrkptStateHandler.ELEMENT_TRACK_POINT)) {
-				result.add(eventFactory.createStartElement("", GpxMergeHeartRate.NAMESPACE_GPX, "extensions"));
-				result.add(eventFactory.createStartElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", "TrackPointExtension"));
-
-				result.add(eventFactory.createStartElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", "hr"));
-
-				result.add(eventFactory.createCharacters(String.valueOf(heartRate)));
-
-				result.add(eventFactory.createEndElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", "hr"));
-
-				result.add(eventFactory.createEndElement(GpxMergeHeartRate.EXTENSION_PREFIX, "", "TrackPointExtension"));
-				result.add(eventFactory.createEndElement("", GpxMergeHeartRate.NAMESPACE_GPX, "extensions"));
-
+			if (next.isEndElement() && next.asEndElement().getName().getLocalPart().equals(lastAvailable)) {
+				SUPPLIERS.get(lastAvailable).apply(eventFactory, heartRate).forEach(result::add);
 			}
 			result.add(next);
 		}
 
 		return result;
+	}
+
+	private String addHeartRateToEventsLastAvailable() {
+		final List<String> options = asList(ELEMENT_TRACK_POINT_EXTENSION, ELEMENT_EXTENSIONS);
+		for (final String next : options) {
+			if (events.stream().anyMatch(a -> a.isStartElement() && a.asStartElement().getName().getLocalPart().equals(next))) {
+				return next;
+			}
+		}
+		return OutsideTrkptStateHandler.ELEMENT_TRACK_POINT;
 	}
 
 	private Optional<OffsetDateTime> getTimeFromEvents() {
@@ -79,9 +115,8 @@ public class InsideTrkptStateHandler extends IdentatingStateHandler {
 			if (found) {
 				if (event.isCharacters()) {
 					return Optional.of(OffsetDateTime.parse(event.asCharacters().getData()));
-				} else {
-					throw new IllegalStateException("XML file is not supported - can't read time");
 				}
+				throw new IllegalStateException("XML file is not supported - can't read time");
 			}
 
 			if (event.isStartElement() && (event.asStartElement().getName().getLocalPart().equals("time"))) {
