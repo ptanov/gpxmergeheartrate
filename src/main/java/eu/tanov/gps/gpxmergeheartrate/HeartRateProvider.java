@@ -104,7 +104,7 @@ public class HeartRateProvider {
 	}
 
 	protected HeartRateRow parseLine(String line) {
-		if (line.contains(",")) {
+		if (line.contains(",") && !line.contains(";")) {
 			return parseLineMiBandTools(line);
 		} else if (line.contains(";")) {
 			return parseLineNotifyFitnessForMiBand(line);

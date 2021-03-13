@@ -1,5 +1,9 @@
 # gpxmergeheartrate
 
+[![Java CI with Maven](https://github.com/ptanov/gpxmergeheartrate/workflows/Java%20CI%20with%20Maven/badge.svg)][actions-link]
+
+[actions-link]: https://github.com/ptanov/gpxmergeheartrate/actions "Configured GitHub Actions"
+
 This program merges gpx track with heart rate provided by MiBand3 (and exported by [Tools & Mi Band/Mi Band Tools](https://play.google.com/store/apps/details?id=cz.zdenekhorak.mibandtools) or [Notify & Fitness for Mi Band](https://play.google.com/store/apps/details?id=com.mc.miband1&hl=en)).
 There is a docker image here: <https://hub.docker.com/r/ptanov/gpxmergeheartrate>. The source code is available here: <https://github.com/ptanov/gpxmergeheartrate>.
 
@@ -8,6 +12,7 @@ There is a docker image here: <https://hub.docker.com/r/ptanov/gpxmergeheartrate
 ### Java
 
 - `mvn package exec:java -Dexec.args='"<input gpx file>" "<input csv heart rate file>" "<result gpx file>"'`
+- `mvn package && java -jar target/eu.tanov.gps.gpxmergeheartrate-1.0-SNAPSHOT.jar "<input gpx file>" "<input csv heart rate file>" "<result gpx file>"`
 
 ### Docker
 

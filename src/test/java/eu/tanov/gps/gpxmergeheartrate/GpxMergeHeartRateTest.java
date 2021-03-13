@@ -46,4 +46,11 @@ public class GpxMergeHeartRateTest {
 		assertResult("inputTrackPointExtension.gpx", "input-notifyfitnessformiband.csv", "outputTrackPointExtension.gpx");
 	}
 
+	@Test
+	public void testProcessNotifyFitnessForMiBandNew() throws Exception {
+		assertResult("input.gpx", "input-notifyfitnessformiband-new.csv", "output.gpx");
+		assertResult("inputExtensions.gpx", "input-notifyfitnessformiband-new.csv", "outputExtensions.gpx");
+		assertResult("inputTrackPointExtension.gpx", "input-notifyfitnessformiband-new.csv", "outputTrackPointExtension.gpx");
+	}
+
 }
